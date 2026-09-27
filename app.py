@@ -10,6 +10,7 @@ from job_queue import create_job, get_job
 
 import os
 import json
+import tempfile
 from collections import Counter
 
 
@@ -243,29 +244,32 @@ def upload_log():
 
         }), 400
 
-    file_path = os.path.join(
-        UPLOAD_FOLDER,
-        file.filename
-    )
+    try:
+        # File contents read karke strings banaye
+        log_content = file.read().decode("utf-8")
+        
+        # Render free container access logic temporary file read-write wrapper block
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".log", encoding="utf-8") as temp_file:
+            temp_file.write(log_content)
+            temp_file_path = temp_file.name
 
-    file.save(file_path)
+        # Background processing worker job setup trigger
+        job_id = create_job(
+            analyze_file,
+            temp_file_path
+        )
 
-    job_id = create_job(
-        analyze_file,
-        file_path
-    )
+        return jsonify({
+            "status": "queued",
+            "jobId": job_id,
+            "filename": file.filename
+        })
 
-    return jsonify({
-
-        "status":
-            "queued",
-
-        "jobId":
-            job_id,
-
-        "filename":
-            file.filename
-    })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 
 # =============================
