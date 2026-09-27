@@ -1,0 +1,23 @@
+{
+    "sql_injection": {
+        "severity": "high",
+        "patterns": [
+            "' OR 1=1",
+            "UNION SELECT"
+        ]
+    },
+    "xss": {
+        "severity": "high",
+        "patterns": [
+            "<script>",
+            "javascript:"
+        ]
+    },
+    "directory_traversal": {
+        "severity": "high",
+        "patterns": [
+            "../",
+            "/etc/passwd"
+        ]
+    }
+}
