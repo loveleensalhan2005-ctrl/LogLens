@@ -1,10 +1,10 @@
- let attackChart = null;
+let attackChart = null;
 let currentJobId = null;
 let attackMap = null;
 
 
 // =============================
-// SHOW FINAL ANALYSIS RESULT
+// DISPLAY RESULTS
 // =============================
 
 function displayResults(data) {
@@ -18,11 +18,17 @@ function displayResults(data) {
     document.getElementById("topAttacker").textContent =
         data.topAttacker;
 
-    createAttackersTable(data.attackers);
+    createAttackersTable(
+        data.attackers
+    );
 
-    createAttackChart(data.attacksPerHour);
+    createAttackChart(
+        data.attacksPerHour
+    );
 
-    createGeoMap(data.attackers);
+    createGeoMap(
+        data.attackers
+    );
 
     document.getElementById(
         "exportButton"
@@ -36,41 +42,96 @@ function displayResults(data) {
 
 async function loadDemoLog() {
 
+    const status =
+        document.getElementById(
+            "uploadStatus"
+        );
+
     try {
 
+        status.textContent =
+            "Starting demo analysis...";
+
+        document.getElementById(
+            "exportButton"
+        ).disabled = true;
+
         const response =
-            await fetch("/api/demo");
+            await fetch(
+                "/api/demo"
+            );
+
+        const contentType =
+            response.headers.get(
+                "content-type"
+            ) || "";
+
+        let data;
+
+        if (
+            contentType.includes(
+                "application/json"
+            )
+        ) {
+
+            data =
+                await response.json();
+
+        } else {
+
+            const text =
+                await response.text();
+
+            console.error(
+                "Non-JSON demo response:",
+                text
+            );
+
+            throw new Error(
+                "Server returned an HTML/error page instead of JSON."
+            );
+        }
 
         if (!response.ok) {
 
             throw new Error(
-                "Failed to load demo log"
+                data.message ||
+                "Unable to start demo analysis."
             );
         }
 
-        const data =
-            await response.json();
+        if (data.jobId) {
 
+            currentJobId =
+                data.jobId;
+
+            status.textContent =
+                "Demo job queued. Job ID: " +
+                currentJobId;
+
+            pollJobStatus(
+                currentJobId
+            );
+
+            return;
+        }
+
+        // Fallback if server directly returns results
         displayResults(data);
 
-        document.getElementById(
-            "uploadStatus"
-        ).textContent =
+        status.textContent =
             "Demo log analyzed successfully.";
 
-    }
-
-    catch (error) {
+    } catch (error) {
 
         console.error(
-            "LogLens Error:",
+            "Demo Error:",
             error
         );
 
-        document.getElementById(
-            "uploadStatus"
-        ).textContent =
-            "Unable to load demo log.";
+        status.textContent =
+            "Unable to load demo log: " +
+            error.message;
     }
 }
 
@@ -82,11 +143,14 @@ async function loadDemoLog() {
 async function uploadLogFile() {
 
     const fileInput =
-        document.getElementById("logFile");
+        document.getElementById(
+            "logFile"
+        );
 
     const status =
-        document.getElementById("uploadStatus");
-
+        document.getElementById(
+            "uploadStatus"
+        );
 
     if (!fileInput.files.length) {
 
@@ -96,19 +160,20 @@ async function uploadLogFile() {
         return;
     }
 
-
     const file =
         fileInput.files[0];
 
-
-    if (!file.name.toLowerCase().endsWith(".log")) {
+    if (
+        !file.name
+            .toLowerCase()
+            .endsWith(".log")
+    ) {
 
         status.textContent =
             "Only .log files are allowed.";
 
         return;
     }
-
 
     const formData =
         new FormData();
@@ -118,15 +183,12 @@ async function uploadLogFile() {
         file
     );
 
-
     status.textContent =
         "Uploading log file...";
-
 
     document.getElementById(
         "exportButton"
     ).disabled = true;
-
 
     try {
 
@@ -139,15 +201,12 @@ async function uploadLogFile() {
                 }
             );
 
-
         const contentType =
             response.headers.get(
                 "content-type"
             ) || "";
 
-
         let data;
-
 
         if (
             contentType.includes(
@@ -173,15 +232,13 @@ async function uploadLogFile() {
             );
         }
 
-
         if (!response.ok) {
 
             throw new Error(
                 data.message ||
-                "Upload failed"
+                "Upload failed."
             );
         }
-
 
         if (data.jobId) {
 
@@ -199,15 +256,12 @@ async function uploadLogFile() {
             return;
         }
 
-
         displayResults(data);
 
         status.textContent =
             "File analyzed successfully.";
 
-    }
-
-    catch (error) {
+    } catch (error) {
 
         console.error(
             "Upload Error:",
@@ -222,16 +276,17 @@ async function uploadLogFile() {
 
 
 // =============================
-// CHECK JOB STATUS
+// POLL JOB STATUS
 // =============================
 
-async function pollJobStatus(jobId) {
+async function pollJobStatus(
+    jobId
+) {
 
     const status =
         document.getElementById(
             "uploadStatus"
         );
-
 
     try {
 
@@ -241,15 +296,12 @@ async function pollJobStatus(jobId) {
                 jobId
             );
 
-
         const contentType =
             response.headers.get(
                 "content-type"
             ) || "";
 
-
         let data;
-
 
         if (
             contentType.includes(
@@ -275,15 +327,18 @@ async function pollJobStatus(jobId) {
             );
         }
 
-
         if (!response.ok) {
 
             throw new Error(
                 data.message ||
-                "Unable to check job status"
+                "Unable to check job status."
             );
         }
 
+
+        // -------------------------
+        // QUEUED / PROCESSING
+        // -------------------------
 
         if (
             data.status === "queued" ||
@@ -310,6 +365,10 @@ async function pollJobStatus(jobId) {
         }
 
 
+        // -------------------------
+        // COMPLETED
+        // -------------------------
+
         if (
             data.status === "completed"
         ) {
@@ -318,7 +377,7 @@ async function pollJobStatus(jobId) {
                 jobId;
 
             status.textContent =
-                "File analyzed successfully.";
+                "Log analyzed successfully.";
 
             displayResults(
                 data.result
@@ -327,6 +386,10 @@ async function pollJobStatus(jobId) {
             return;
         }
 
+
+        // -------------------------
+        // FAILED
+        // -------------------------
 
         if (
             data.status === "failed"
@@ -343,9 +406,7 @@ async function pollJobStatus(jobId) {
             return;
         }
 
-    }
-
-    catch (error) {
+    } catch (error) {
 
         console.error(
             "Job Status Error:",
@@ -375,7 +436,6 @@ function exportReport() {
         return;
     }
 
-
     window.location.href =
         "/api/export/" +
         currentJobId;
@@ -395,9 +455,7 @@ function createAttackersTable(
             "topAttackers"
         );
 
-
     container.innerHTML = "";
-
 
     if (
         !attackers ||
@@ -410,12 +468,10 @@ function createAttackersTable(
         return;
     }
 
-
     const table =
         document.createElement(
             "table"
         );
-
 
     table.style.width =
         "100%";
@@ -423,11 +479,8 @@ function createAttackersTable(
     table.style.borderCollapse =
         "collapse";
 
-
     table.innerHTML = `
-
         <tr>
-
             <th style="text-align:left; padding:10px;">
                 IP Address
             </th>
@@ -443,11 +496,8 @@ function createAttackersTable(
             <th style="text-align:left; padding:10px;">
                 Country
             </th>
-
         </tr>
-
     `;
-
 
     attackers.forEach(
         attacker => {
@@ -457,9 +507,7 @@ function createAttackersTable(
                     "tr"
                 );
 
-
             row.innerHTML = `
-
                 <td style="padding:10px;">
                     ${attacker.ip}
                 </td>
@@ -478,22 +526,22 @@ function createAttackersTable(
                         "Private/Unknown"
                     }
                 </td>
-
             `;
 
-
-            table.appendChild(row);
-
+            table.appendChild(
+                row
+            );
         }
     );
 
-
-    container.appendChild(table);
+    container.appendChild(
+        table
+    );
 }
 
 
 // =============================
-// ATTACKS PER HOUR CHART
+// ATTACK TIMELINE CHART
 // =============================
 
 function createAttackChart(
@@ -505,24 +553,23 @@ function createAttackChart(
             "attackChart"
         );
 
+    if (
+        !canvas ||
+        !attackData
+    ) {
 
-    if (!canvas || !attackData) {
         return;
     }
-
 
     if (attackChart) {
 
         attackChart.destroy();
-
     }
-
 
     attackChart =
         new Chart(
             canvas,
             {
-
                 type: "line",
 
                 data: {
@@ -531,9 +578,7 @@ function createAttackChart(
                         attackData.labels,
 
                     datasets: [
-
                         {
-
                             label:
                                 "Attacks per Hour",
 
@@ -545,11 +590,8 @@ function createAttackChart(
 
                             fill:
                                 false
-
                         }
-
                     ]
-
                 },
 
                 options: {
@@ -568,22 +610,17 @@ function createAttackChart(
 
                                 stepSize:
                                     1
-
                             }
-
                         }
-
                     }
-
                 }
-
             }
         );
 }
 
 
 // =============================
-// GEO MAP
+// GEOIP ATTACK MAP
 // =============================
 
 function createGeoMap(
@@ -600,13 +637,14 @@ function createGeoMap(
             "attackMap"
         );
 
+    if (
+        !container ||
+        !mapElement
+    ) {
 
-    if (!container || !mapElement) {
         return;
     }
 
-
-    // Remove previous map
     if (attackMap) {
 
         attackMap.remove();
@@ -614,8 +652,6 @@ function createGeoMap(
         attackMap = null;
     }
 
-
-    // Create Leaflet map
     attackMap =
         L.map(
             "attackMap"
@@ -624,8 +660,6 @@ function createGeoMap(
             2
         );
 
-
-    // OpenStreetMap tiles
     L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
@@ -643,7 +677,9 @@ function createGeoMap(
     ) {
 
         L.popup()
-            .setLatLng([20, 0])
+            .setLatLng(
+                [20, 0]
+            )
             .setContent(
                 "No attacking IP addresses detected."
             )
@@ -657,40 +693,27 @@ function createGeoMap(
 
     let privateIpCount = 0;
 
-
     attackers.forEach(
         attacker => {
-
-            /*
-             * Private IP addresses such as
-             * 192.168.x.x do not have a
-             * public geographic location.
-             */
 
             if (
                 !attacker.countryCode
             ) {
 
                 privateIpCount++;
-
-                return;
             }
-
-            /*
-             * Country coordinates are not
-             * currently supplied by the backend.
-             * Therefore no fake location is shown.
-             */
-
         }
     );
 
 
-    // Informative map message
-    if (privateIpCount > 0) {
+    if (
+        privateIpCount > 0
+    ) {
 
         L.popup()
-            .setLatLng([20, 0])
+            .setLatLng(
+                [20, 0]
+            )
             .setContent(
                 "<strong>GeoIP Information</strong><br>" +
                 privateIpCount +

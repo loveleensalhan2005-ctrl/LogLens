@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_from_directory, request, send_file
+ from flask import Flask, jsonify, send_from_directory, request, send_file
 from flask_cors import CORS
 
 from parser import parse_log_file
@@ -16,7 +16,7 @@ from collections import Counter
 
 app = Flask(__name__)
 
-# Allow React frontend to connect with Flask backend
+# Allow frontend to connect with Flask backend
 CORS(app)
 
 
@@ -189,11 +189,38 @@ def load_demo():
         "demo.log"
     )
 
-    result = analyze_file(
-        demo_file
-    )
+    try:
 
-    return jsonify(result)
+        # Create a job for the demo log
+        job_id = create_job(
+            analyze_file,
+            demo_file
+        )
+
+        return jsonify({
+
+            "status":
+                "queued",
+
+            "jobId":
+                job_id,
+
+            "filename":
+                "demo.log"
+
+        })
+
+    except Exception as error:
+
+        return jsonify({
+
+            "status":
+                "error",
+
+            "message":
+                str(error)
+
+        }), 500
 
 
 # =============================
@@ -244,31 +271,72 @@ def upload_log():
 
         }), 400
 
-    try:
-        # File contents read karke strings banaye
-        log_content = file.read().decode("utf-8")
-        
-        # Render free container access logic temporary file read-write wrapper block
-        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".log", encoding="utf-8") as temp_file:
-            temp_file.write(log_content)
-            temp_file_path = temp_file.name
+    temp_file_path = None
 
-        # Background processing worker job setup trigger
+    try:
+
+        # Read uploaded file
+        log_content = file.read().decode(
+            "utf-8",
+            errors="ignore"
+        )
+
+        # Create temporary log file
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            delete=False,
+            suffix=".log",
+            encoding="utf-8"
+        ) as temp_file:
+
+            temp_file.write(
+                log_content
+            )
+
+            temp_file_path = (
+                temp_file.name
+            )
+
+        # Start background job
         job_id = create_job(
             analyze_file,
             temp_file_path
         )
 
         return jsonify({
-            "status": "queued",
-            "jobId": job_id,
-            "filename": file.filename
+
+            "status":
+                "queued",
+
+            "jobId":
+                job_id,
+
+            "filename":
+                file.filename
+
         })
 
-    except Exception as e:
+    except Exception as error:
+
+        # Remove temporary file if creation
+        # or job creation fails
+        if (
+            temp_file_path and
+            os.path.exists(temp_file_path)
+        ):
+
+            os.remove(
+                temp_file_path
+            )
+
         return jsonify({
-            "status": "error",
-            "message": str(e)
+
+            "status":
+                "error",
+
+            "message":
+                str(error)
+
         }), 500
 
 
@@ -386,13 +454,17 @@ def export_report(job_id):
 # =============================
 
 if __name__ == "__main__":
-    import os
 
     app.run(
 
         host="0.0.0.0",
 
-        port=int(os.environ.get("PORT",5000)),
+        port=int(
+            os.environ.get(
+                "PORT",
+                5000
+            )
+        ),
 
         debug=False
     )
