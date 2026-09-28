@@ -1,4 +1,4 @@
-let attackChart = null;
+ let attackChart = null;
 let currentJobId = null;
 let attackMap = null;
 
@@ -140,8 +140,38 @@ async function uploadLogFile() {
             );
 
 
-        const data =
-            await response.json();
+        const contentType =
+            response.headers.get(
+                "content-type"
+            ) || "";
+
+
+        let data;
+
+
+        if (
+            contentType.includes(
+                "application/json"
+            )
+        ) {
+
+            data =
+                await response.json();
+
+        } else {
+
+            const text =
+                await response.text();
+
+            console.error(
+                "Non-JSON server response:",
+                text
+            );
+
+            throw new Error(
+                "Server returned an HTML/error page instead of JSON."
+            );
+        }
 
 
         if (!response.ok) {
@@ -185,7 +215,7 @@ async function uploadLogFile() {
         );
 
         status.textContent =
-            "Error: " +
+            "Upload Error: " +
             error.message;
     }
 }
@@ -212,8 +242,38 @@ async function pollJobStatus(jobId) {
             );
 
 
-        const data =
-            await response.json();
+        const contentType =
+            response.headers.get(
+                "content-type"
+            ) || "";
+
+
+        let data;
+
+
+        if (
+            contentType.includes(
+                "application/json"
+            )
+        ) {
+
+            data =
+                await response.json();
+
+        } else {
+
+            const text =
+                await response.text();
+
+            console.error(
+                "Non-JSON job response:",
+                text
+            );
+
+            throw new Error(
+                "Server returned an HTML/error page."
+            );
+        }
 
 
         if (!response.ok) {
